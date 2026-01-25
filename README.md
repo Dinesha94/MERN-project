@@ -23,3 +23,5 @@ nodemon server.js
 cd frontend  
 npm install  
 npm start  
+
+Local: http://localhost:3001  
