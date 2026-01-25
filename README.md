@@ -1,6 +1,3 @@
-# MERN-project
-MERN Stack Task: Task Manager API + UI
-
 # MERN Task Manager
 
 A full-stack Task Manager application built using:
