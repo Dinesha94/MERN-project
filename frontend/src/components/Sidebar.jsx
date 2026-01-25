@@ -1,14 +1,28 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 export default function Sidebar({ tasks = [] }) {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [showCompletedOnly, setShowCompletedOnly] = useState(false);
   const isAdmin = user?.role === "admin";
 
-  // Calculate stats
+  const [showCompletedOnly, setShowCompletedOnly] = useState(false);
+
+  // Sync state with localStorage (important)
+  useEffect(() => {
+    const syncState = () => {
+      setShowCompletedOnly(
+        window.localStorage.getItem("showCompleted") === "true"
+      );
+    };
+
+    syncState();
+    window.addEventListener("storage", syncState);
+    return () => window.removeEventListener("storage", syncState);
+  }, []);
+
+  // Task stats
   const activeTasks = tasks.filter((task) => !task.completed).length;
   const completedTasks = tasks.filter((task) => task.completed).length;
   const totalTasks = tasks.length;
@@ -18,11 +32,20 @@ export default function Sidebar({ tasks = [] }) {
     navigate("/login");
   };
 
-  const handleCompletedClick = (e) => {
-    e.preventDefault();
-    setShowCompletedOnly(!showCompletedOnly);
-    window.localStorage.setItem("showCompleted", !showCompletedOnly);
+  // ✅ Completed Tasks toggle
+  const handleCompletedClick = () => {
+    const newValue = !showCompletedOnly;
+    setShowCompletedOnly(newValue);
+    window.localStorage.setItem("showCompleted", newValue);
     window.dispatchEvent(new Event("storage"));
+  };
+
+  // ✅ My Tasks → back to dashboard + reset completed state
+  const handleMyTasksClick = () => {
+    setShowCompletedOnly(false);
+    window.localStorage.setItem("showCompleted", "false");
+    window.dispatchEvent(new Event("storage"));
+    navigate("/dashboard");
   };
 
   return (
@@ -37,7 +60,7 @@ export default function Sidebar({ tasks = [] }) {
           </p>
         </div>
 
-        {/* User Info Card */}
+        {/* User Info */}
         <div className="bg-gray-800 p-4 rounded-lg mb-6">
           <p className="text-sm text-gray-400 mb-1">Logged in as</p>
           <p className="font-semibold text-white text-sm">{user?.name}</p>
@@ -47,9 +70,12 @@ export default function Sidebar({ tasks = [] }) {
           </span>
         </div>
 
-        {/* Navigation Section */}
+        {/* Navigation */}
         <div className="border-t border-gray-700 pt-4 mb-6">
-          <p className="text-gray-400 text-xs uppercase font-semibold mb-4">Navigation</p>
+          <p className="text-gray-400 text-xs uppercase font-semibold mb-4">
+            Navigation
+          </p>
+
           <div className="space-y-2">
             {isAdmin ? (
               <>
@@ -68,12 +94,19 @@ export default function Sidebar({ tasks = [] }) {
               </>
             ) : (
               <>
-                <Link
-                  to="/dashboard"
-                  className="block px-4 py-3 rounded-lg hover:bg-gray-800 transition font-medium text-sm"
+                {/* ✅ My Tasks */}
+                <button
+                  onClick={handleMyTasksClick}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition text-sm font-medium ${
+                    !showCompletedOnly
+                      ? "bg-blue-600 text-white"
+                      : "hover:bg-gray-800 text-gray-300"
+                  }`}
                 >
                   📝 My Tasks
-                </Link>
+                </button>
+
+                {/* ✅ Completed Tasks */}
                 <button
                   onClick={handleCompletedClick}
                   className={`w-full text-left px-4 py-3 rounded-lg transition text-sm ${
@@ -89,24 +122,26 @@ export default function Sidebar({ tasks = [] }) {
           </div>
         </div>
 
-        {/* Stats Section */}
+        {/* Stats */}
         {!isAdmin && (
           <div className="border-t border-gray-700 pt-4 mb-6">
-            <p className="text-gray-400 text-xs uppercase font-semibold mb-4">Quick Stats</p>
+            <p className="text-gray-400 text-xs uppercase font-semibold mb-4">
+              Quick Stats
+            </p>
             <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Total Tasks:</span>
                 <span className="font-semibold text-blue-400 bg-blue-900 bg-opacity-30 px-2 py-1 rounded">
                   {totalTasks}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Active:</span>
                 <span className="font-semibold text-orange-400 bg-orange-900 bg-opacity-30 px-2 py-1 rounded">
                   {activeTasks}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Completed:</span>
                 <span className="font-semibold text-green-400 bg-green-900 bg-opacity-30 px-2 py-1 rounded">
                   {completedTasks}
@@ -115,29 +150,7 @@ export default function Sidebar({ tasks = [] }) {
             </div>
           </div>
         )}
-
-        {isAdmin && (
-          <div className="border-t border-gray-700 pt-4 mb-6">
-            <p className="text-gray-400 text-xs uppercase font-semibold mb-4">Admin Stats</p>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400">Total Tasks:</span>
-                <span className="font-semibold text-blue-400 bg-blue-900 bg-opacity-30 px-2 py-1 rounded">
-                  {totalTasks}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400">Active Users:</span>
-                <span className="font-semibold text-purple-400 bg-purple-900 bg-opacity-30 px-2 py-1 rounded">0</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Bottom Section */}
     </aside>
   );
 }
-
-
