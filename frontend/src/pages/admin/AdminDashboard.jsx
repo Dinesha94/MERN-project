@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import api from "../../api";
 import { AuthContext } from "../../context/AuthContext";
 import Navbar from "../../components/Navbar";
@@ -11,10 +11,12 @@ function AdminDashboard() {
   const [completedTasks, setCompletedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const dropdownRef = useRef(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assignedTo: "",
+    assignedTo: [],
   });
   const [stats, setStats] = useState({
     totalTasks: 0,
@@ -62,6 +64,16 @@ function AdminDashboard() {
     fetchAllData();
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowMemberDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
@@ -70,15 +82,15 @@ function AdminDashboard() {
         description: formData.description,
       });
       
-      // If a member was selected, assign the task
-      if (formData.assignedTo) {
+      // If members were selected, assign the task
+      if (formData.assignedTo.length > 0) {
         await api.put(`/tasks/${res.data._id}`, {
           assignedTo: formData.assignedTo,
         });
       }
 
       // Reset form
-      setFormData({ title: "", description: "", assignedTo: "" });
+      setFormData({ title: "", description: "", assignedTo: [] });
       
       // Refresh tasks
       await fetchAllData();
@@ -101,7 +113,17 @@ function AdminDashboard() {
 
   const handleAssignTask = async (taskId, assignedToId) => {
     try {
-      const res = await api.put(`/tasks/${taskId}`, { assignedTo: assignedToId });
+      const task = allTasks.find(t => t._id === taskId);
+      let assignedToList = task.assignedTo || [];
+      
+      // Toggle assignment
+      if (assignedToList.some(a => a._id === assignedToId)) {
+        assignedToList = assignedToList.filter(a => a._id !== assignedToId);
+      } else {
+        assignedToList.push(assignedToId);
+      }
+      
+      const res = await api.put(`/tasks/${taskId}`, { assignedTo: assignedToList });
       setAllTasks(allTasks.map((t) => (t._id === taskId ? res.data : t)));
       setAssignModal({ visible: false, taskId: null, currentAssignee: null });
       await fetchAllData();
@@ -112,7 +134,7 @@ function AdminDashboard() {
 
   const handleUnassignTask = async (taskId) => {
     try {
-      const res = await api.put(`/tasks/${taskId}`, { assignedTo: null });
+      const res = await api.put(`/tasks/${taskId}`, { assignedTo: [] });
       setAllTasks(allTasks.map((t) => (t._id === taskId ? res.data : t)));
       setAssignModal({ visible: false, taskId: null, currentAssignee: null });
       await fetchAllData();
@@ -233,24 +255,58 @@ function AdminDashboard() {
                     />
                   </div>
 
-                  <div>
+                  <div ref={dropdownRef}>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Assign To Member
+                      Assign To Members
                     </label>
-                    <select
-                      value={formData.assignedTo}
-                      onChange={(e) =>
-                        setFormData({ ...formData, assignedTo: e.target.value })
-                      }
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    <button
+                      type="button"
+                      onClick={() => setShowMemberDropdown(!showMemberDropdown)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-left flex items-center justify-between"
                     >
-                      <option value="">Select a member (optional)</option>
-                      {allUsers.map((member) => (
-                        <option key={member._id} value={member._id}>
-                          {member.name} ({member.email})
-                        </option>
-                      ))}
-                    </select>
+                      <span className="text-gray-700">
+                        {formData.assignedTo.length === 0
+                          ? "Select members (optional)"
+                          : `${formData.assignedTo.length} member${formData.assignedTo.length !== 1 ? "s" : ""} selected`}
+                      </span>
+                      <span className={`transition ${showMemberDropdown ? "rotate-180" : ""}`}>▼</span>
+                    </button>
+                    
+                    {showMemberDropdown && (
+                      <div className="absolute z-50 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg">
+                        <div className="max-h-48 overflow-y-auto">
+                          {allUsers.map((member) => (
+                            <label
+                              key={member._id}
+                              className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.assignedTo.includes(member._id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormData({
+                                      ...formData,
+                                      assignedTo: [...formData.assignedTo, member._id],
+                                    });
+                                  } else {
+                                    setFormData({
+                                      ...formData,
+                                      assignedTo: formData.assignedTo.filter(id => id !== member._id),
+                                    });
+                                  }
+                                }}
+                                className="w-4 h-4 cursor-pointer"
+                              />
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-800 text-sm">{member.name}</p>
+                                <p className="text-gray-500 text-xs">{member.email}</p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -309,14 +365,18 @@ function AdminDashboard() {
 
                             <div className="bg-purple-50 p-2 rounded">
                               <p className="text-gray-600 text-xs">Assigned To</p>
-                              {task.assignedTo ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                                    {getUserInitials(task.assignedTo?.name || "U")}
-                                  </div>
-                                  <span className="font-semibold text-gray-800">
-                                    {task.assignedTo?.name}
-                                  </span>
+                              {task.assignedTo && task.assignedTo.length > 0 ? (
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {task.assignedTo.map((assignee) => (
+                                    <div key={assignee._id} className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-purple-200">
+                                      <div className="w-5 h-5 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                        {getUserInitials(assignee?.name || "U")}
+                                      </div>
+                                      <span className="font-semibold text-gray-800 text-xs">
+                                        {assignee?.name}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
                               ) : (
                                 <p className="text-gray-500 text-xs mt-1">Unassigned</p>
@@ -329,6 +389,10 @@ function AdminDashboard() {
                               Assigned on: {formatDate(task.assignedDate)}
                             </p>
                           )}
+
+                          <p className="text-gray-500 text-xs mb-3">
+                            Created on: {formatDate(task.createdAt)}
+                          </p>
 
                           <div className="flex gap-2">
                             <button
@@ -358,105 +422,47 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {/* Completed Tasks Section */}
-          <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">
-              ✅ Completed Tasks ({completedTasks.length})
-            </h2>
-            {completedTasks.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No completed tasks yet</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedTasks.map((task) => (
-                  <div
-                    key={task._id}
-                    className="p-4 border border-green-200 bg-green-50 rounded-lg"
-                  >
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                      {task.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-3">
-                      {task.description || "No description"}
-                    </p>
-
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-gray-600 text-xs">Completed By</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                            {getUserInitials(task.user?.name || "U")}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-800">
-                              {task.user?.name}
-                            </p>
-                            <p className="text-gray-500 text-xs">{task.user?.email}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {task.assignedTo && (
-                        <div>
-                          <p className="text-gray-600 text-xs">Assigned To</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                              {getUserInitials(task.assignedTo?.name || "U")}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-800">
-                                {task.assignedTo?.name}
-                              </p>
-                              <p className="text-gray-500 text-xs">
-                                {formatDate(task.assignedDate)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => handleDeleteTask(task._id)}
-                      className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm font-semibold transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Assignment Modal */}
           {assignModal.visible && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
-                <h3 className="text-2xl font-bold mb-6 text-gray-800">Assign Task</h3>
+                <h3 className="text-2xl font-bold mb-6 text-gray-800">Assign Task to Members</h3>
 
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {allUsers.map((user) => (
-                    <button
-                      key={user._id}
-                      onClick={() => handleAssignTask(assignModal.taskId, user._id)}
-                      className={`w-full p-3 text-left rounded-lg border-2 transition ${
-                        assignModal.currentAssignee === user._id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-blue-300"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
-                          {getUserInitials(user.name)}
+                  {allUsers.map((user) => {
+                    const task = allTasks.find(t => t._id === assignModal.taskId);
+                    const isAssigned = task?.assignedTo?.some(a => a._id === user._id);
+                    return (
+                      <button
+                        key={user._id}
+                        onClick={() => handleAssignTask(assignModal.taskId, user._id)}
+                        className={`w-full p-3 text-left rounded-lg border-2 transition ${
+                          isAssigned
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-blue-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                            isAssigned
+                              ? "bg-blue-500 border-blue-500"
+                              : "border-gray-300"
+                          }`}>
+                            {isAssigned && <span className="text-white text-xs">✓</span>}
+                          </div>
+                          <div className="w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
+                            {getUserInitials(user.name)}
+                          </div>
+                          <div>
+                            <span className="block font-semibold text-gray-800">
+                              {user.name}
+                            </span>
+                            <span className="text-sm text-gray-600">{user.email}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="block font-semibold text-gray-800">
-                            {user.name}
-                          </span>
-                          <span className="text-sm text-gray-600">{user.email}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-6 flex gap-3">

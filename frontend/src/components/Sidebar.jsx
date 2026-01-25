@@ -60,10 +60,10 @@ export default function Sidebar({ tasks = [] }) {
                   📊 Admin Dashboard
                 </Link>
                 <Link
-                  to="/admin"
+                  to="/admin/completed-tasks"
                   className="block px-4 py-3 rounded-lg hover:bg-gray-800 transition text-sm text-gray-400"
                 >
-                  📈 All Tasks
+                  ✅ Completed Tasks
                 </Link>
               </>
             ) : (
@@ -135,15 +135,7 @@ export default function Sidebar({ tasks = [] }) {
         )}
       </div>
 
-      {/* Bottom Section - Logout Button */}
-      <div className="border-t border-gray-700 pt-4">
-        <button
-          onClick={handleLogout}
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2 text-sm"
-        >
-          🚪 Logout
-        </button>
-      </div>
+      {/* Bottom Section */}
     </aside>
   );
 }

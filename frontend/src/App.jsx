@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/user/Dashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import CompletedTasks from "./pages/admin/CompletedTasks";
 
 function App() {
   const { token, user, loading } = useContext(AuthContext);
@@ -64,6 +65,18 @@ function App() {
           element={
             token && isAdmin
               ? <AdminDashboard />
+              : token && !isAdmin
+              ? <Navigate to="/dashboard" />
+              : <Navigate to="/login" />
+          }
+        />
+
+        {/* Completed Tasks Page */}
+        <Route
+          path="/admin/completed-tasks"
+          element={
+            token && isAdmin
+              ? <CompletedTasks />
               : token && !isAdmin
               ? <Navigate to="/dashboard" />
               : <Navigate to="/login" />

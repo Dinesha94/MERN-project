@@ -14,10 +14,12 @@ router.post("/register", async (req, res) => {
   const user = await User.create({ name, email, password, role });
 
   res.status(201).json({
-    _id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
     token: generateToken(user._id),
   });
 });
@@ -29,9 +31,12 @@ router.post("/login", async (req, res) => {
   const user = await User.findOne({ email });
   if (user && (await user.matchPassword(password))) {
     res.json({
-      _id: user._id,
-      name: user.name,
-      role: user.role,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       token: generateToken(user._id),
     });
   } else {
