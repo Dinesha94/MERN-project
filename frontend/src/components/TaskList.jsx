@@ -28,7 +28,7 @@ function TaskList({ tasks, fetchTasks }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Your Tasks</h2>
+      <h2 className="text-xl font-bold mb-4 text-gray-800">📝 My Tasks</h2>
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
           {error}
